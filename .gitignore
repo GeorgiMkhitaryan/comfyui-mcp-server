@@ -1,4 +1,34 @@
-# Python cache files
+# .gitignore for comfyui-mcp-server
+# Node.js dependencies
+node_modules/
+# Build output
+dist/
+# Environment files
+.env
+.env.local
+# Logs and temporary files
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+*.log
+# IDE/editor files
+.vscode/
+.idea/
+.venv/
 __pycache__/
-*.pyc
-archive/
+workflows/
+*.sublime-workspace
+# OS files
+.DS_Store
+Thumbs.db
+# Generated ComfyUI project directories (keep source code clean)
+projects/*
+# Workflow templates (if they are generated)
+workflows/*.generated.json
+# Miscellaneous temporary files
+/tmp/
+*.tmp
+# Coverage reports
+coverage/
+# Yarn integrity file
+.yarn-integrity
