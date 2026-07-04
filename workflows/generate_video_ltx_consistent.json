@@ -1,0 +1,151 @@
+{
+  "10": {
+    "inputs": {
+      "ckpt_name": "ltx-video-2b-v0.9.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "LTX Video Checkpoint"
+    }
+  },
+  "11": {
+    "inputs": {
+      "lora_name": "LTX-2.3-ID-LoRA-CelebVHQ-3K.safetensors",
+      "strength_model": 1.0,
+      "strength_clip": 1.0,
+      "model": [
+        "10",
+        0
+      ],
+      "clip": [
+        "10",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "ID-LoRA (Character Consistency)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "text": "PARAM_PROMPT",
+      "clip": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "13": {
+    "inputs": {
+      "text": "PARAM_NEGATIVE_PROMPT",
+      "clip": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "14": {
+    "inputs": {
+      "width": "PARAM_INT_WIDTH",
+      "height": "PARAM_INT_HEIGHT",
+      "length": 65,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentVideo",
+    "_meta": {
+      "title": "Empty Latent Video"
+    }
+  },
+  "15": {
+    "inputs": {
+      "model": [
+        "11",
+        0
+      ],
+      "seed": "PARAM_INT_SEED",
+      "steps": "PARAM_INT_STEPS",
+      "cfg": "PARAM_FLOAT_CFG",
+      "sampler_name": "PARAM_STR_SAMPLER_NAME",
+      "scheduler": "PARAM_STR_SCHEDULER",
+      "positive": [
+        "12",
+        0
+      ],
+      "negative": [
+        "13",
+        0
+      ],
+      "latent_image": [
+        "14",
+        0
+      ],
+      "denoise": 1.0
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "LTX Sampler"
+    }
+  },
+  "16": {
+    "inputs": {
+      "vae_name": "ltx-video-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "LTX VAE"
+    }
+  },
+  "17": {
+    "inputs": {
+      "samples": [
+        "15",
+        0
+      ],
+      "vae": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "18": {
+    "inputs": {
+      "images": [
+        "17",
+        0
+      ],
+      "fps": "PARAM_INT_FPS"
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "19": {
+    "inputs": {
+      "video": [
+        "18",
+        0
+      ],
+      "filename_prefix": "Arqonium_LTX_Consistent",
+      "format": "auto",
+      "codec": "auto"
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  }
+}
