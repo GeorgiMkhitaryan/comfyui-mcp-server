@@ -1,6 +1,6 @@
 # Core dependencies
 requests>=2.31.0
-mcp>=0.9.0
+mcp>=0.9.0,<2  # server.py uses FastMCP, renamed in mcp 2.x
 
 # Image processing (required for view_image tool)
 Pillow>=10.0.0

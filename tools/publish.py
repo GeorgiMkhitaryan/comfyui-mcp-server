@@ -116,7 +116,7 @@ def register_publish_tools(
         Args:
             asset_id: Asset ID from generation tools (session-scoped, dies on restart)
             target_filename: Optional target filename (e.g., "hero.png"). If omitted, auto-generated.
-                Must match regex: ^[a-z0-9][a-z0-9._-]{0,63}\.(webp|png|jpg|jpeg)$
+                Must match regex: ^[a-z0-9][a-z0-9._-]{0,63}\\.(webp|png|jpg|jpeg)$
             manifest_key: Optional manifest key (required if target_filename omitted).
                 Must match regex: ^[a-z0-9][a-z0-9._-]{0,63}$
             web_optimize: If True, convert to WebP and apply compression (default: False).

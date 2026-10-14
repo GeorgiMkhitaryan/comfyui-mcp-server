@@ -298,6 +298,13 @@ class WorkflowManager:
             except json.JSONDecodeError as exc:
                 logger.error("Skipping workflow %s due to JSON error: %s", workflow_path.name, exc)
                 continue
+            if not self._is_api_format(workflow):
+                logger.warning(
+                    "Skipping workflow %s: not in ComfyUI API format (a node-id -> node map); "
+                    "export it with 'Save (API)'",
+                    workflow_path.name,
+                )
+                continue
 
             parameters = self._extract_parameters(workflow)
             if not parameters:
@@ -372,8 +379,16 @@ class WorkflowManager:
         
         return workflow
 
+    @staticmethod
+    def _is_api_format(workflow: Any) -> bool:
+        """An API-format workflow maps node ids to node dicts; the UI graph format
+        (title / nodes[] / links[]) does not and cannot be queued."""
+        return isinstance(workflow, dict) and bool(workflow) and all(isinstance(node, dict) for node in workflow.values())
+
     def _extract_parameters(self, workflow: Dict[str, Any]):
         parameters: "OrderedDict[str, WorkflowParameter]" = OrderedDict()
+        if not self._is_api_format(workflow):
+            return parameters
         for node_id, node in workflow.items():
             inputs = node.get("inputs", {})
             if not isinstance(inputs, dict):

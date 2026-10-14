@@ -236,6 +236,13 @@ class DefaultsManager:
         if namespace in self._invalid_models and self._invalid_models[namespace] == model:
             return False
         
+        # No checkpoint list yet (ComfyUI asleep at startup): ask again, and if ComfyUI still
+        # gives none, do not reject - the run reaches ComfyUI and reports the real problem.
+        if not self._available_models_set:
+            self.refresh_model_set()
+            if not self._available_models_set:
+                return True
+
         # Check if in available models set
         return model in self._available_models_set
     
@@ -243,7 +250,12 @@ class DefaultsManager:
         """Validate all default models at startup and log warnings for missing ones."""
         # Refresh model set first
         self.refresh_model_set()
-        
+        if not self._available_models_set:
+            # Nothing to validate against: marking the defaults invalid now would reject
+            # every generation even after ComfyUI comes up. is_model_valid checks lazily.
+            logger.info("No checkpoint list from ComfyUI yet; default models are checked once it answers")
+            return
+
         # Validate each namespace
         for namespace in ["image", "audio", "video"]:
             is_valid, model_name, source = self.validate_default_model(namespace)

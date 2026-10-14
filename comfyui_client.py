@@ -13,8 +13,20 @@ logger = logging.getLogger("ComfyUIClient")
 class ComfyUIClient:
     def __init__(self, base_url):
         self.base_url = base_url
-        self.available_models = self._get_available_models()
-    
+        self._available_models = self._get_available_models()
+
+    @property
+    def available_models(self):
+        """Checkpoint names. An empty list is fetched again on the next read, so a ComfyUI
+        that was asleep when this server started is picked up once it answers."""
+        if not self._available_models:
+            self._available_models = self._get_available_models()
+        return self._available_models
+
+    @available_models.setter
+    def available_models(self, models):
+        self._available_models = models
+
     def refresh_models(self):
         """Re-fetch available models and update available_models list."""
         self.available_models = self._get_available_models()
@@ -185,7 +197,10 @@ class ComfyUIClient:
 
     def _queue_workflow(self, workflow: Dict[str, Any]):
         logger.info("Submitting workflow to ComfyUI...")
-        response = requests.post(f"{self.base_url}/prompt", json={"prompt": workflow}, timeout=30)
+        try:
+            response = requests.post(f"{self.base_url}/prompt", json={"prompt": workflow}, timeout=30)
+        except requests.ConnectionError:
+            raise Exception(f"ComfyUI is not running at {self.base_url}. Start ComfyUI and retry.")
         if response.status_code != 200:
             raise Exception(f"Failed to queue workflow: {response.status_code} - {response.text}")
         try:

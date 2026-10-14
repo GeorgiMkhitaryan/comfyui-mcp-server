@@ -3,7 +3,6 @@
 import logging
 import os
 import sys
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -36,23 +35,25 @@ ASSET_TTL_HOURS = int(os.getenv("COMFY_MCP_ASSET_TTL_HOURS", "24"))
 
 # ComfyUI connection configuration
 COMFYUI_URL = os.getenv("COMFYUI_URL", "http://localhost:8188")
-COMFYUI_MAX_RETRIES = 5  # Number of retry attempts
-COMFYUI_INITIAL_DELAY = 2  # Initial delay in seconds
-COMFYUI_MAX_DELAY = 16  # Maximum delay in seconds
 
 # Publish configuration (optional env var for COMFYUI_OUTPUT_ROOT only)
 COMFYUI_OUTPUT_ROOT = os.getenv("COMFYUI_OUTPUT_ROOT")
 
 
+def say(message: str = "") -> None:
+    """Print an operator-facing banner line to stderr: under --stdio, stdout carries JSON-RPC only."""
+    print(message, file=sys.stderr)
+
+
 def print_startup_banner():
     """Print a nice startup banner for the server."""
-    print("\n" + "=" * 70)
-    print("[*] ComfyUI-MCP-Server".center(70))
-    print("=" * 70)
-    print(f"  Connecting to ComfyUI at: {COMFYUI_URL}")
-    print(f"  Workflow directory: {WORKFLOW_DIR}")
-    print(f"  Asset TTL: {ASSET_TTL_HOURS} hours")
-    print("=" * 70 + "\n")
+    say("\n" + "=" * 70)
+    say("[*] ComfyUI-MCP-Server".center(70))
+    say("=" * 70)
+    say(f"  Connecting to ComfyUI at: {COMFYUI_URL}")
+    say(f"  Workflow directory: {WORKFLOW_DIR}")
+    say(f"  Asset TTL: {ASSET_TTL_HOURS} hours")
+    say("=" * 70 + "\n")
 
 
 def check_comfyui_available(base_url: str) -> bool:
@@ -73,62 +74,16 @@ def check_comfyui_available(base_url: str) -> bool:
         return False
 
 
-def wait_for_comfyui(base_url: str, max_retries: int = COMFYUI_MAX_RETRIES, 
-                     initial_delay: float = COMFYUI_INITIAL_DELAY,
-                     max_delay: float = COMFYUI_MAX_DELAY) -> bool:
-    """Wait for ComfyUI to become available with exponential backoff.
-    
-    Args:
-        base_url: ComfyUI base URL
-        max_retries: Maximum number of retry attempts
-        initial_delay: Initial delay in seconds before first retry
-        max_delay: Maximum delay in seconds between retries
-    
-    Returns:
-        True if ComfyUI becomes available, False if all retries exhausted
-    """
-    print("\n" + "=" * 70)
-    print("[!]  ALERT: ComfyUI is not available!")
-    print("=" * 70)
-    print(f"  Checking for ComfyUI at: {base_url}")
-    print(f"  Waiting for ComfyUI to start (will retry {max_retries} times)...")
-    print("=" * 70 + "\n")
-    
-    delay = initial_delay
-    for attempt in range(1, max_retries + 1):
-        logger.info(f"ComfyUI availability check (attempt {attempt}/{max_retries})...")
-        
-        if check_comfyui_available(base_url):
-            print("\n" + "=" * 70)
-            print("[+] ComfyUI is now available!")
-            print("=" * 70 + "\n")
-            logger.info("ComfyUI is available, proceeding with server startup")
-            return True
-        
-        if attempt < max_retries:
-            print(f"[...] Attempt {attempt}/{max_retries} failed. Retrying in {delay:.1f} seconds...")
-            time.sleep(delay)
-            # Exponential backoff: double the delay, but cap at max_delay
-            delay = min(delay * 2, max_delay)
-        else:
-            print(f"[X] Attempt {attempt}/{max_retries} failed. No more retries.")
-    
-    return False
-
-
 # Print startup banner
 print_startup_banner()
 
-# Check ComfyUI availability before initializing clients
-if not check_comfyui_available(COMFYUI_URL):
-    if not wait_for_comfyui(COMFYUI_URL):
-        print("\n" + "=" * 70)
-        print("[X] ERROR: ComfyUI is not available after all retry attempts!")
-        print("=" * 70)
-        print(f"  Please ensure ComfyUI is running at: {COMFYUI_URL}")
-        print("  Start ComfyUI first, then restart this server.")
-        print("=" * 70 + "\n")
-        sys.exit(1)
+# ComfyUI may be asleep and started on demand, so its absence is not fatal: the server
+# comes up anyway, reads the checkpoint list once ComfyUI answers, and a generation
+# call made while it is still down returns "ComfyUI is not running".
+COMFYUI_AVAILABLE_AT_START = check_comfyui_available(COMFYUI_URL)
+if not COMFYUI_AVAILABLE_AT_START:
+    say("[!] ComfyUI is not running at " + COMFYUI_URL + "; starting anyway, tools connect once it is up.")
+    logger.warning(f"ComfyUI not available at {COMFYUI_URL} at startup; continuing without it")
 
 # Global ComfyUI client (fallback since context isn't available)
 comfyui_client = ComfyUIClient(COMFYUI_URL)
@@ -207,30 +162,31 @@ if __name__ == "__main__":
     # Check if running as MCP command (stdio) or standalone (streamable-http)
     # When run as command by MCP client (like Cursor), use stdio transport
     # When run standalone, use streamable-http for HTTP access
+    comfyui_state = "up" if COMFYUI_AVAILABLE_AT_START else "not running yet"
     if len(sys.argv) > 1 and sys.argv[1] == "--stdio":
-        print("\n" + "=" * 70)
-        print("[+] Server Ready".center(70))
-        print("=" * 70)
-        print(f"  Transport: stdio (for MCP clients)")
-        print(f"[+] ComfyUI verified at: {COMFYUI_URL}")
-        print("=" * 70 + "\n")
+        say("\n" + "=" * 70)
+        say("[+] Server Ready".center(70))
+        say("=" * 70)
+        say(f"  Transport: stdio (for MCP clients)")
+        say(f"  ComfyUI at {COMFYUI_URL}: {comfyui_state}")
+        say("=" * 70 + "\n")
         logger.info("Starting MCP server with stdio transport (for MCP clients)")
-        logger.info(f"ComfyUI verified at: {COMFYUI_URL}")
+        logger.info(f"ComfyUI at {COMFYUI_URL}: {comfyui_state}")
         try:
             mcp.run(transport="stdio")
         except KeyboardInterrupt:
-            print("\n[*] Server stopped.")
+            say("\n[*] Server stopped.")
     else:
-        print("\n" + "=" * 70)
-        print("[+] Server Ready".center(70))
-        print("=" * 70)
-        print(f"  Transport: streamable-http")
-        print(f"  Endpoint: http://127.0.0.1:9000/mcp")
-        print(f"[+] ComfyUI verified at: {COMFYUI_URL}")
-        print("=" * 70 + "\n")
+        say("\n" + "=" * 70)
+        say("[+] Server Ready".center(70))
+        say("=" * 70)
+        say(f"  Transport: streamable-http")
+        say(f"  Endpoint: http://127.0.0.1:9000/mcp")
+        say(f"  ComfyUI at {COMFYUI_URL}: {comfyui_state}")
+        say("=" * 70 + "\n")
         logger.info("Starting MCP server with streamable-http transport on http://127.0.0.1:9000/mcp")
-        logger.info(f"ComfyUI verified at: {COMFYUI_URL}")
+        logger.info(f"ComfyUI at {COMFYUI_URL}: {comfyui_state}")
         try:
             mcp.run(transport="streamable-http")
         except KeyboardInterrupt:
-            print("\n[*] Server stopped.")
+            say("\n[*] Server stopped.")
